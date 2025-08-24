@@ -358,7 +358,7 @@ router.get('/pdfs/:id_despacho/:pdf', (req, res) => {
     
     // Filtrar solo los que empiezan con id_despacho y contienen el nombre pdf dinámico
     const filtrados = archivos.filter(file =>
-      file.startsWith(`${id_despacho}-${pdf}`) && file.endsWith('.pdf')
+      file.startsWith(`${id_despacho}-${pdf}`)
     );
 
     // Mapear solo los nombres
