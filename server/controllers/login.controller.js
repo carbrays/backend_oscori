@@ -54,6 +54,45 @@ const loginPost = async (req, res) => {
   });
 };
 
+const loginMovilPost = async (req, res) => {
+  console.log(req.body);
+    if (!req.body.login || !req.body.password) {
+        res.status(400).json({ 
+                    success : false,
+                token: null,
+                message: 'Usuario o contraseña incorrectos' })
+    } else {
+	    
+        const query = {
+            text: `SELECT id_usuario, login, password, nombre, rol FROM usuarios WHERE login=$1`,
+            values: [req.body.login],
+        }
+        pool.query(query, (err, result) => {
+            if (err) throw err
+            if (result.rowCount == 0) return res.status(400).json({ msg: 'Usuario no valido' })
+            if (!bcrypt.compareSync(req.body.password, result.rows[0].password)) {
+                return res.status(400).json({ 
+                    success : false,
+                token: null,
+                message: 'Usuario o contraseña incorrectos' })
+            	}
+
+	    let generador=result.rows[0];
+        delete generador.password;
+            let token = jwt.sign({
+                usuario: generador
+            }, process.env.SEED, { expiresIn: process.env.CADUCIDAD_TOKEN });
+
+            return res.status(200).json({
+                success : true,
+                token: token,
+                message: generador.id_usuario + '|' + generador.nombre + '|' + generador.rol
+            })
+        })
+
+    }
+  };
+
 function validaUsuario(username) {
   if (
     username.indexOf("@gob.bo") > -1 ||
@@ -69,4 +108,5 @@ function validaUsuario(username) {
 
 module.exports = {
   loginPost,
+  loginMovilPost
 };

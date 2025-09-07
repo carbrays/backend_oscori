@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { loginPost } = require('../controllers/login.controller')
+const { loginMovilPost } = require('../controllers/login.controller')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { verificaToken } = require('../middlewares/autenticacion');
@@ -11,6 +12,7 @@ const { usuarioDatos } = require('../middlewares/validardatologin')
 
 
 router.post('/signin', loginPost);
+router.post('/signin_movil', loginMovilPost);
 router.get('/renew', verificaToken, function (req, res) {
     const { token } = req.headers;
     var payload = jwt.decode(token, process.env.SEED);

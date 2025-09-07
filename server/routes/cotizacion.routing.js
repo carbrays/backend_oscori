@@ -39,31 +39,32 @@ router.post('/crear_cotizacion', async (req, res) => {
 
   const query = `
     INSERT INTO cotizacion (
-      modo_cliente, tipo_cliente, razon_social, nombre_comercial, 
-      correo, telefono, ciudad, tipo_documento, tipo_bl, numero_bl, 
-      id_tipo_carga, numero_contenedor, tamano,
+      modo_cliente, tipo_cliente, nombre_comercial, nit, persona_contacto,
+      correo_contacto, telefono_contacto, ciudad,
+      c_nombre_comercial, c_persona_contacto, c_correo, c_telefono, c_ciudad,
+      tipo_documento, tipo_bl, numero_bl, id_tipo_carga, numero_contenedor, tamano,
       peso_kg, id_mercancia, embalaje, volumen_m3, id_navieria, fecha_llegada,
       id_ciudad_origen, id_ciudad_destino, id_despacho_aduanero, lugar_descarga,
       id_despacho_portuario, devolucion, gate_in, flete, estado, usucre, feccre,
       usumod, fecmod, categoria_cliente
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,
-      $8,$9,$10,$11,$12,$13,$14,
-      $15,$16,$17,$18,$19,$20,
-      $21,$22,$23,$24,$25,$26,$27,
-      $28,$29,NOW(),$30,$31,$32
+      $1,$2,$3,$4,$5,$6,$7,$8,
+      $9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
+      $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,
+      $30,$31,$32,$33,$34,$35,$36,$37
     )
     RETURNING *`;
 
   const values = [
-    data.modo_cliente, data.tipo_cliente, data.razon_social, data.nombre_comercial,
-    data.correo, data.telefono, data.ciudad, data.tipo_documento, data.tipo_bl, data.numero_bl,
-    data.id_tipo_carga, data.numero_contenedor,
-    data.tamano, data.peso_kg, data.id_mercancia, data.embalaje, data.volumen_m3,
-    data.id_navieria, data.fecha_llegada, data.id_ciudad_origen, data.id_ciudad_destino,
-    data.id_despacho_aduanero, data.lugar_descarga, data.id_despacho_portuario,
-    data.devolucion || false, data.gate_in || false, data.flete,
-    data.estado || 'ACTIVO', data.usucre, data.usumod, data.fecmod, data.categoria_cliente
+    data.modo_cliente, data.tipo_cliente, data.nombre_comercial, data.nit, data.persona_contacto,
+    data.correo_contacto, data.telefono_contacto, data.ciudad,
+    data.c_nombre_comercial, data.c_persona_contacto, data.c_correo, data.c_telefono, data.c_ciudad,
+    data.tipo_documento, data.tipo_bl, data.numero_bl, data.id_tipo_carga, data.numero_contenedor, data.tamano,
+    data.peso_kg, data.id_mercancia, data.embalaje, data.volumen_m3, data.id_navieria, data.fecha_llegada,
+    data.id_ciudad_origen, data.id_ciudad_destino, data.id_despacho_aduanero, data.lugar_descarga,
+    data.id_despacho_portuario, data.devolucion || false, data.gate_in || false, data.flete,
+    data.estado || 'ACTIVO', data.usucre, data.feccre || new Date(),
+    data.usumod, data.fecmod, data.categoria_cliente
   ];
 
   try {
@@ -84,47 +85,52 @@ router.put('/editar_cotizacion/:id', async (req, res) => {
     UPDATE cotizacion SET
       modo_cliente = $1,
       tipo_cliente = $2,
-      razon_social = $3,
-      nombre_comercial = $4,
-      correo = $5,
-      telefono = $6,
-      ciudad = $7,
-      tipo_documento = $8,
-      tipo_bl = $9,
-      numero_bl = $10,
-      id_tipo_carga = $11,
-      numero_contenedor = $12,
-      tamano = $13,
-      peso_kg = $14,
-      id_mercancia = $15,
-      embalaje = $16,
-      volumen_m3 = $17,
-      id_navieria = $18,
-      fecha_llegada = $19,
-      id_ciudad_origen = $20,
-      id_ciudad_destino = $21,
-      id_despacho_aduanero = $22,
-      lugar_descarga = $23,
-      id_despacho_portuario = $24,
-      devolucion = $25,
-      gate_in = $26,
-      flete = $27,
-      estado = $28,
-      usumod = $29,
+      nombre_comercial = $3,
+      nit = $4,
+      persona_contacto = $5,
+      correo_contacto = $6,
+      telefono_contacto = $7,
+      ciudad = $8,
+      c_nombre_comercial = $9,
+      c_persona_contacto = $10,
+      c_correo = $11,
+      c_telefono = $12,
+      c_ciudad = $13,
+      tipo_documento = $14,
+      tipo_bl = $15,
+      numero_bl = $16,
+      id_tipo_carga = $17,
+      numero_contenedor = $18,
+      tamano = $19,
+      peso_kg = $20,
+      id_mercancia = $21,
+      embalaje = $22,
+      volumen_m3 = $23,
+      id_navieria = $24,
+      fecha_llegada = $25,
+      id_ciudad_origen = $26,
+      id_ciudad_destino = $27,
+      id_despacho_aduanero = $28,
+      lugar_descarga = $29,
+      id_despacho_portuario = $30,
+      devolucion = $31,
+      gate_in = $32,
+      flete = $33,
+      estado = $34,
+      usumod = $35,
       fecmod = NOW(),
-      categoria_cliente = $30
-    WHERE id_cotizacion = $31
+      categoria_cliente = $36
+    WHERE id_cotizacion = $37
     RETURNING *`;
 
   const values = [
-    data.modo_cliente, data.tipo_cliente, data.razon_social, data.nombre_comercial,
-    data.correo, data.telefono, data.ciudad, data.tipo_documento,
-    data.tipo_bl, data.numero_bl, data.id_tipo_carga,
-    data.numero_contenedor, data.tamano, data.peso_kg, data.id_mercancia,
-    data.embalaje, data.volumen_m3, data.id_navieria, data.fecha_llegada,
-    data.id_ciudad_origen, data.id_ciudad_destino, data.id_despacho_aduanero,
-    data.lugar_descarga, data.id_despacho_portuario,
-    data.devolucion ?? false, data.gate_in ?? false, data.flete,
+    data.modo_cliente, data.tipo_cliente, data.nombre_comercial, data.nit,
+    data.persona_contacto, data.correo_contacto, data.telefono_contacto, data.ciudad,
+    data.c_nombre_comercial, data.c_persona_contacto, data.c_correo, data.c_telefono, data.c_ciudad,
+    data.tipo_documento, data.tipo_bl, data.numero_bl, data.id_tipo_carga, data.numero_contenedor, data.tamano,
+    data.peso_kg, data.id_mercancia, data.embalaje, data.volumen_m3, data.id_navieria, data.fecha_llegada,
+    data.id_ciudad_origen, data.id_ciudad_destino, data.id_despacho_aduanero, data.lugar_descarga,
+    data.id_despacho_portuario, data.devolucion ?? false, data.gate_in ?? false, data.flete,
     data.estado || 'ACTIVO', data.usumod, data.categoria_cliente,
     id
   ];
@@ -163,11 +169,21 @@ router.put('/eliminar_cotizacion/:id', async (req, res) => {
 
 router.get('/clientes', async (req, res) => {
   try {
-    const result = await pool.query(`SELECT id_cliente, nombre_comercial, razon_social, correo, telefono, ciudad  FROM clientes ORDER BY id_cliente`);
+    const result = await pool.query(`SELECT id_cliente, nombre_comercial, persona_contacto, telefono_contacto, correo_contacto, ciudad  FROM clientes ORDER BY id_cliente`);
     res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener los clientes' });
+  }
+});
+
+router.get('/forwaders', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT id_forwarder, nombre_comercial, persona_contacto, correo, telefono, ciudad FROM forwaders ORDER BY id_forwarder`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener los forwaders' });
   }
 });
 

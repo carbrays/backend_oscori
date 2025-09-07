@@ -9,13 +9,16 @@ const fs = require('fs');
 // ✅ LISTAR CONTENEDORES
 router.get('/contenedores', async (req, res) => {
   try {
-    const result = await pool.query(`SELECT c.*, d.id_cliente, d.id_mercancia, d.bl_madre, d.id_despacho, d.fecha_llegada, d.fecha_limite, d.id_asignacion_vehiculo_carga, 
+    const result = await pool.query(`SELECT c.*, d.id_cliente, d.id_mercancia, d.bl_madre, d.id_despacho, d.fecha_llegada, d.fecha_limite, d.id_asignacion_vehiculo_carga,
+      d.autorizado, 
     (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='ESTIBAJE' AND id_contenedor = c.id_contenedor) as deuda_estibaje,
     (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='GRUAJE' AND id_contenedor = c.id_contenedor) as deuda_gruaje,
     (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='MONTACARGA' AND id_contenedor = c.id_contenedor) as deuda_montacarga,
     (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='URBANO' AND id_contenedor = c.id_contenedor) as deuda_urbano,
     (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='TRASBORDO' AND id_contenedor = c.id_contenedor) as deuda_trasbordo,
-    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='LAVADO' AND id_contenedor = c.id_contenedor) as deuda_lavado
+    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='LAVADO' AND id_contenedor = c.id_contenedor) as deuda_lavado,
+	  (SELECT fecha_devolucion FROM cat_contenedor_devolucion where id_contenedor = c.id_contenedor and estado = 'ACTIVO' order by fecha_devolucion DESC LIMIT 1) fec_devolucion,
+    d.id_ciudad_destino
     FROM cat_contenedor c 
     JOIN despachos d ON d.id_contenedor::INT = c.id_contenedor
     WHERE c.estado != 'INACTIVO'
@@ -82,16 +85,24 @@ router.put('/editar_contenedor/:id', async (req, res) => {
       verificado=$13,
       ano_plaqueta=$14,
       fecha_devolucion=$15,
-      ubicacion_devolucion=$16
+      ubicacion_devolucion=$16,
+      tiene_estibaje=$17,
+      tiene_gruaje=$18,
+      tiene_montacarga=$19,
+      tiene_urbano=$20,
+      tiene_trasbordo=$21,
+      tiene_lavado=$22
     WHERE id_contenedor=$11 RETURNING *`;
 
   const values = [
     data.id_naviera, data.numero_contenedor, data.tipo_contenedor,
     data.tamano, data.ano, data.id_categoria, data.id_ciudad_origen,
-    data.estado_contenedor, data.observaciones, data.usumod || 'sistema', 
-    id, data.estado || 'ACTIVO',
+    data.estado_contenedor, data.observaciones, data.usumod || 'admin', 
+    id, data.estado,
     data.verificado, data.ano_plaqueta, data.fecha_devolucion,
-    data.ubicacion_devolucion
+    data.ubicacion_devolucion, data.tiene_estibaje, data.tiene_gruaje,
+    data.tiene_montacarga, data.tiene_urbano, data.tiene_trasbordo,
+    data.tiene_lavado
   ];
 
   try {
@@ -423,6 +434,13 @@ router.post('/crear_devolucion', async (req, res) => {
       [id_contenedor]
     );
 
+    await pool.query(
+      `UPDATE despachos
+       SET estado= 'DEVUELTO', fecmod=NOW()
+       WHERE id_contenedor = $1`,
+      [id_contenedor]
+    );
+
     // 4️⃣ Respuesta final
     res.status(201).json({
       message: 'Devolución creada y total actualizado correctamente',
@@ -477,6 +495,13 @@ router.put('/eliminar_devolucion/:id/:id_contenedor', async (req, res) => {
        WHERE id_contenedor = $1 AND (SELECT COUNT(*) FROM cat_contenedor_devolucion WHERE id_contenedor = $1 AND estado != 'INACTIVO') = 0`,
       [id_contenedor]
     );
+
+     await pool.query(
+      `UPDATE despachos
+       SET estado= 'PLANIFICADO', fecmod=NOW()
+       WHERE id_contenedor::int = $1 AND (SELECT COUNT(*) FROM cat_contenedor_devolucion WHERE id_contenedor = $1 AND estado != 'INACTIVO') = 0`,
+      [id_contenedor]
+    );
     // 4️⃣ Respuesta final
     res.status(201).json({
       message: 'Devolución actualizado correctamente'
@@ -509,7 +534,7 @@ router.get('/imagenes/:id_contenedor', (req, res) => {
     const filtrados = archivos.filter(file => {
       const lower = file.toLowerCase();
       return (
-        file.startsWith(`${id_contenedor}`) &&
+        file.startsWith(`${id_contenedor}-`) &&
         extensiones.some(ext => lower.endsWith(ext))
       );
     });
@@ -574,6 +599,18 @@ router.get('/pdfs/:id_contenedor/:pdf', (req, res) => {
     console.error('Error al leer PDFs:', err.message);
     res.status(500).json({ error: 'No se pudieron leer los PDFs' });
   }
+});
+
+router.delete('/eliminar_pdf/:nombre', (req, res) => {
+  const nombre = req.params.nombre;
+  const ruta = path.join(__dirname, '../../uploads/pdfs_contenedor', nombre);
+
+  fs.unlink(ruta, (err) => {
+    if (err) {
+      return res.status(404).json({ ok: false, msg: 'Archivo no encontrado' });
+    }
+    res.json({ ok: true, msg: 'Archivo eliminado' });
+  });
 });
 
 module.exports = router;
