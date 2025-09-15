@@ -6,17 +6,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// ✅ LISTAR DESPACHOS ACTIVOS
-// router.get('/despachos', async (req, res) => {
-//   try {
-//     const result = await pool.query(`SELECT *, (SELECT numero_contenedor FROM cat_contenedor WHERE id_contenedor = despachos.id_contenedor::INT) numero_contenedor FROM despachos WHERE estado = 'ACTIVO' ORDER BY id_despacho DESC`);
-//     res.json(result.rows);
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: 'Error al obtener los despachos' });
-//   }
-// });
-
 router.get('/despachos', async (req, res) => {
   try {
     // 1. Obtener despachos desde la base de datos
@@ -41,14 +30,14 @@ router.get('/despachos', async (req, res) => {
       archivos = archivosPDF.map(nombre => {
         const partes = nombre.split('-');
         const idDespacho = parseInt(partes[0], 10);
-        const documentoPdf = partes[1] || null; 
+        const documentoPdf = partes[1] || null;
         let documento;
         if (documentoPdf === null) {
-          documento = null; 
+          documento = null;
         } else {
           documento = partes[1].split('.')[0];
         }
-        
+
         return {
           id_despacho: isNaN(idDespacho) ? null : idDespacho,
           documento: documento || null,
@@ -81,6 +70,41 @@ router.get('/despachos', async (req, res) => {
   }
 });
 
+router.get('/despachos_estado/:grupo/:estado', async (req, res) => {
+  try {
+    const { grupo, estado } = req.params;
+
+    let result;
+    if (grupo === 'DESPACHOS') {
+      // 1. Obtener despachos desde la base de datos
+      result = await pool.query(`
+      SELECT *, 
+        (SELECT numero_contenedor FROM cat_contenedor WHERE id_contenedor = despachos.id_contenedor::INT) AS numero_contenedor 
+      FROM despachos 
+      WHERE estado = $1 
+      ORDER BY fecha_llegada DESC
+    `, [estado]);
+    } else {
+      result = await pool.query(`
+      SELECT *, 
+        (SELECT numero_contenedor FROM cat_contenedor WHERE id_contenedor = despachos.id_contenedor::INT) AS numero_contenedor 
+      FROM despachos 
+      WHERE estado = $1 
+      AND id_tipo_carga = 'CARGA_SUELTA'
+      ORDER BY fecha_llegada DESC
+    `, [estado]);
+    }
+
+    const despachos = result.rows;
+
+    res.json(despachos);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener los despachos' });
+  }
+});
+
 // ✅ CREAR DESPACHO
 router.post('/crear_despacho', async (req, res) => {
   const data = req.body;
@@ -92,12 +116,12 @@ router.post('/crear_despacho', async (req, res) => {
       $1,$2,$3,$4,$5,$6,now()
     ) RETURNING id_contenedor`;
 
-    let estado;
-    if(data.id_asignacion_vehiculo_carga === null){
-      estado = 'EN OFICINA';
-    } else {
-      estado = 'PLANIFICADO';
-    }
+  let estado;
+  if (data.id_asignacion_vehiculo_carga === null) {
+    estado = 'EN OFICINA';
+  } else {
+    estado = 'PLANIFICADO';
+  }
   const contenedorValues = [data.numero_contenedor, data.descripcion_carga, data.id_naviera, data.id_ciudad_origen, estado, data.usucre];
 
   const query = `
@@ -109,7 +133,7 @@ router.post('/crear_despacho', async (req, res) => {
       fecha_descarga, descripcion, estado, usucre, feccre, volumen_m3,
       bl_hijo, fecha_bl_madre, fecha_bl_hijo, dam, fecha_dam, embalaje,
       id_deposito_aduanero, id_despacho_aduanero_general, permisos, precinto, precinto_gog, precinto_dress, bl_nieto, fecha_bl_nieto, id_preasignacion_vehiculo_carga,
-      autorizado
+      autorizado, dim, fecha_dim, despacho_agencia, despacho_nombre, despacho_telefono
     ) VALUES (
       $1,$2,$3,$4,$5,
       $6,$7,$8,$9,$10,
@@ -128,21 +152,21 @@ router.post('/crear_despacho', async (req, res) => {
     const id_contenedor = resultContenedor.rows[0].id_contenedor;
 
     const values = [
-    data.id_cliente, data.id_mercancia, id_contenedor, data.id_tipo_carga, data.descripcion_carga,
-    data.bl_madre, data.peso_kg, data.id_naviera, data.id_despacho_portuario, data.fecha_llegada,
-    data.fecha_limite, data.id_ciudad_origen, data.id_ciudad_destino, data.id_despacho_aduanero,
-    data.id_asignacion_vehiculo_carga, data.fecha_carga, data.id_asignacion_vehiculo_descarga,
-    data.fecha_descarga, data.descripcion, estado, data.usucre,
-    data.volumen_m3, data.bl_hijo, data.fecha_bl_madre, data.fecha_bl_hijo, data.dam, data.fecha_dam, data.embalaje,
-    data.id_deposito_aduanero, data.id_despacho_aduanero_general, data.permisos, data.precinto, data.precinto_gog, data.precinto_dress, data.bl_nieto, data.fecha_bl_nieto,
-    data.id_preasignacion_vehiculo_carga, data.autorizado
-  ];
+      data.id_cliente, data.id_mercancia, id_contenedor, data.id_tipo_carga, data.descripcion_carga,
+      data.bl_madre, data.peso_kg, data.id_naviera, data.id_despacho_portuario, data.fecha_llegada,
+      data.fecha_limite, data.id_ciudad_origen, data.id_ciudad_destino, data.id_despacho_aduanero,
+      data.id_asignacion_vehiculo_carga, data.fecha_carga, data.id_asignacion_vehiculo_descarga,
+      data.fecha_descarga, data.descripcion, estado, data.usucre,
+      data.volumen_m3, data.bl_hijo, data.fecha_bl_madre, data.fecha_bl_hijo, data.dam, data.fecha_dam, data.embalaje,
+      data.id_deposito_aduanero, data.id_despacho_aduanero_general, data.permisos, data.precinto, data.precinto_gog, data.precinto_dress, data.bl_nieto, data.fecha_bl_nieto,
+      data.id_preasignacion_vehiculo_carga, data.autorizado, data.dim, data.fecha_dim, data.despacho_agencia, data.despacho_nombre, data.despacho_telefono
+    ];
 
-  const result = await pool.query(query, values);
+    const result = await pool.query(query, values);
 
     await pool.query('COMMIT');
     res.json(result.rows[0]);
-    
+
   } catch (err) {
     await pool.query('ROLLBACK');
     console.error(err);
@@ -170,12 +194,12 @@ router.put('/editar_despacho/:id', async (req, res) => {
              END 
     WHERE id_contenedor=$6 RETURNING estado`;
 
-    let estado;
-    if(data.id_asignacion_vehiculo_carga === null){
-      estado = 'EN OFICINA';
-    } else {
-      estado = 'PLANIFICADO';
-    }
+  let estado;
+  if (data.id_asignacion_vehiculo_carga === null) {
+    estado = 'EN OFICINA';
+  } else {
+    estado = 'PLANIFICADO';
+  }
 
   const contenedorValues = [data.numero_contenedor, data.descripcion_carga, data.id_naviera, data.id_ciudad_origen, data.usucre, data.id_contenedor, estado];
 
@@ -188,7 +212,7 @@ router.put('/editar_despacho/:id', async (req, res) => {
       fecha_descarga=$18, descripcion=$19, usumod=$20, fecmod=NOW(),
       volumen_m3=$21, bl_hijo=$22, fecha_bl_madre=$23, fecha_bl_hijo=$24, dam=$25, fecha_dam=$26, embalaje=$27,
       id_deposito_aduanero=$28, id_despacho_aduanero_general=$29, permisos=$30, precinto=$31, precinto_gog=$32, precinto_dress=$33, estado=$35, bl_nieto=$36, fecha_bl_nieto=$37,
-      id_preasignacion_vehiculo_carga=$38, autorizado=$39
+      id_preasignacion_vehiculo_carga=$38, autorizado=$39, dim=$40, fecha_dim=$41, despacho_agencia=$42, despacho_nombre=$43, despacho_telefono=$44
     WHERE id_despacho=$34 RETURNING *`;
 
 
@@ -198,20 +222,20 @@ router.put('/editar_despacho/:id', async (req, res) => {
     const resultContenedor = await pool.query(queryContenedor, contenedorValues);
     const estado_contenedor = resultContenedor.rows[0]?.estado ?? null;
 
-    if(estado_contenedor === 'DEVUELTO') {
+    if (estado_contenedor === 'DEVUELTO') {
       estado = 'DEVUELTO';
-    } 
+    }
 
     const values = [
-    data.id_cliente, data.id_mercancia, data.id_contenedor, data.id_tipo_carga, data.descripcion_carga,
-    data.bl_madre, data.peso_kg, data.id_naviera, data.id_despacho_portuario, data.fecha_llegada,
-    data.fecha_limite, data.id_ciudad_origen, data.id_ciudad_destino, data.id_despacho_aduanero,
-    data.id_asignacion_vehiculo_carga, data.fecha_carga, data.id_asignacion_vehiculo_descarga,
-    data.fecha_descarga, data.descripcion, data.usumod || 'admin', 
-    data.volumen_m3, data.bl_hijo, data.fecha_bl_madre, data.fecha_bl_hijo, data.dam, data.fecha_dam, data.embalaje,
-    data.id_deposito_aduanero, data.id_despacho_aduanero_general, data.permisos, data.precinto, data.precinto_gog, data.precinto_dress, id, estado, data.bl_nieto, data.fecha_bl_nieto,
-    data.id_preasignacion_vehiculo_carga, data.autorizado
-  ];
+      data.id_cliente, data.id_mercancia, data.id_contenedor, data.id_tipo_carga, data.descripcion_carga,
+      data.bl_madre, data.peso_kg, data.id_naviera, data.id_despacho_portuario, data.fecha_llegada,
+      data.fecha_limite, data.id_ciudad_origen, data.id_ciudad_destino, data.id_despacho_aduanero,
+      data.id_asignacion_vehiculo_carga, data.fecha_carga, data.id_asignacion_vehiculo_descarga,
+      data.fecha_descarga, data.descripcion, data.usumod || 'admin',
+      data.volumen_m3, data.bl_hijo, data.fecha_bl_madre, data.fecha_bl_hijo, data.dam, data.fecha_dam, data.embalaje,
+      data.id_deposito_aduanero, data.id_despacho_aduanero_general, data.permisos, data.precinto, data.precinto_gog, data.precinto_dress, id, estado, data.bl_nieto, data.fecha_bl_nieto,
+      data.id_preasignacion_vehiculo_carga, data.autorizado, data.dim, data.fecha_dim, data.despacho_agencia, data.despacho_nombre, data.despacho_telefono
+    ];
 
     const result = await pool.query(query, values);
     await pool.query('COMMIT');
@@ -334,21 +358,21 @@ router.get('/vehiculos', async (req, res) => {
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/pdfs/'); 
+    cb(null, 'uploads/pdfs/');
   },
-  filename: function (req, file, cb) {    
+  filename: function (req, file, cb) {
     const nombreFinal = file.originalname;
     cb(null, nombreFinal);
   }
 });
 const upload = multer({ storage: storage });
 
-router.get('/verPdf/:id', (req, res)=>{ 
-    if(fs.existsSync(path.join(__dirname, '../../uploads/pdfs', `${req.params.id}`))) {
-      res.sendFile( path.join(__dirname, '../../uploads/pdfs', `${req.params.id}`));
-    } else {
-      res.json('No existe el documento');
-    }
+router.get('/verPdf/:id', (req, res) => {
+  if (fs.existsSync(path.join(__dirname, '../../uploads/pdfs', `${req.params.id}`))) {
+    res.sendFile(path.join(__dirname, '../../uploads/pdfs', `${req.params.id}`));
+  } else {
+    res.json('No existe el documento');
+  }
 });
 
 router.post('/subir_pdf', upload.single('archivo'), (req, res) => {
@@ -388,7 +412,7 @@ router.get('/pdfs/:id_despacho/:pdf', (req, res) => {
 
   try {
     const archivos = fs.readdirSync(carpetaUploads);
-    
+
     // Filtrar solo los que empiezan con id_despacho y contienen el nombre pdf dinámico
     const filtrados = archivos.filter(file =>
       file.startsWith(`${id_despacho}-${pdf}`)
@@ -448,9 +472,9 @@ router.delete('/eliminar_pdf/:nombre', (req, res) => {
   });
 });
 
-router.get('/despachos_movil/:id', function(req, res) {
-    const { id } = req.params;
-    pool.query(`select id_despacho, coalesce(c.id_contenedor,0) id_contenedor,
+router.get('/despachos_movil/:id', function (req, res) {
+  const { id } = req.params;
+  pool.query(`select id_despacho, coalesce(c.id_contenedor,0) id_contenedor,
 coalesce(numero_contenedor, 'SIN CONTENEDOR') contenedor, 
 tamano, 
 (select nombre_comercial from cat_naviera where id_naviera=d.id_naviera) naviera, 
@@ -471,9 +495,9 @@ on v.id_vehiculo =  d.id_asignacion_vehiculo_carga
 left join cat_contenedor c
 on c.id_contenedor = d.id_contenedor::int
 where d.estado= 'PLANIFICADO' and conductor = $1`, [id], (err, result) => {
-        if (err) throw err
-        return res.status(200).send(result.rows)
-    })
+    if (err) throw err
+    return res.status(200).send(result.rows)
+  })
 });
 
 module.exports = router;

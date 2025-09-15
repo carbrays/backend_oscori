@@ -30,6 +30,30 @@ router.get('/contenedores', async (req, res) => {
   }
 });
 
+router.get('/contenedores_estado/:estado', async (req, res) => {
+  try {
+    const { estado } = req.params;
+    const result = await pool.query(`SELECT c.*, d.id_cliente, d.id_mercancia, d.bl_madre, d.id_despacho, d.fecha_llegada, d.fecha_limite, d.id_asignacion_vehiculo_carga,
+      d.autorizado, 
+    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='ESTIBAJE' AND id_contenedor = c.id_contenedor) as deuda_estibaje,
+    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='GRUAJE' AND id_contenedor = c.id_contenedor) as deuda_gruaje,
+    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='MONTACARGA' AND id_contenedor = c.id_contenedor) as deuda_montacarga,
+    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='URBANO' AND id_contenedor = c.id_contenedor) as deuda_urbano,
+    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='TRASBORDO' AND id_contenedor = c.id_contenedor) as deuda_trasbordo,
+    (SELECT sum(monto::numeric) FROM cat_contenedor_gasto WHERE cancelado = false AND estado != 'INACTIVO' AND tipo='LAVADO' AND id_contenedor = c.id_contenedor) as deuda_lavado,
+	  (SELECT fecha_devolucion FROM cat_contenedor_devolucion where id_contenedor = c.id_contenedor and estado = 'ACTIVO' order by fecha_devolucion DESC LIMIT 1) fec_devolucion,
+    d.id_ciudad_destino
+    FROM cat_contenedor c 
+    JOIN despachos d ON d.id_contenedor::INT = c.id_contenedor
+    WHERE c.estado = $1
+    ORDER BY c.id_contenedor DESC`, [estado]);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener contenedores' });
+  }
+});
+
 // ✅ CREAR CONTENEDOR
 router.post('/crear_contenedor', async (req, res) => {
   const data = req.body;
@@ -91,7 +115,8 @@ router.put('/editar_contenedor/:id', async (req, res) => {
       tiene_montacarga=$19,
       tiene_urbano=$20,
       tiene_trasbordo=$21,
-      tiene_lavado=$22
+      tiene_lavado=$22,
+      tiene_reparacion_contenedor=$23
     WHERE id_contenedor=$11 RETURNING *`;
 
   const values = [
@@ -102,7 +127,7 @@ router.put('/editar_contenedor/:id', async (req, res) => {
     data.verificado, data.ano_plaqueta, data.fecha_devolucion,
     data.ubicacion_devolucion, data.tiene_estibaje, data.tiene_gruaje,
     data.tiene_montacarga, data.tiene_urbano, data.tiene_trasbordo,
-    data.tiene_lavado
+    data.tiene_lavado, data.tiene_reparacion_contenedor
   ];
 
   try {

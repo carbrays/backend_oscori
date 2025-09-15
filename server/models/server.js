@@ -33,6 +33,7 @@ class Server {
         this.app.use('/contenedor', require('../routes/contenedores.routing'));
         this.app.use('/despachos', require('../routes/despachos.routing'));
         this.app.use('/cotizacion', require('../routes/cotizacion.routing'));
+        this.app.use('/forwader', require('../routes/forwader.routing'));
         this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
     }

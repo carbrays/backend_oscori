@@ -89,4 +89,27 @@ router.put('/eliminar_cliente/:id', async (req, res) => {
   }
 });
 
+router.get('/totales', async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT 1 orden, 'DESPACHOS' grupo, estado titulo, COUNT(*)::text cantidad, '#28a745' color, 'ri-file-list-3-line' icono FROM despachos WHERE estado != 'INACTIVO' GROUP BY estado
+UNION
+SELECT 2 orden, 'CONTENEDORES' grupo, estado titulo, COUNT(*)::text cantidad, '#28a745' color, 'ri-file-list-3-line' icono FROM cat_contenedor WHERE estado != 'INACTIVO' GROUP BY estado
+UNION 
+SELECT 3 orden , 'CARGA SUELTA' grupo, estado titulo, COUNT(*)::text cantidad, '#28a745' color, 'ri-file-list-3-line' icono FROM despachos WHERE estado != 'INACTIVO' AND id_tipo_carga = 'CARGA_SUELTA' GROUP BY estado
+UNION
+SELECT 4 orden, 'VEHICULOS' grupo, CASE WHEN d.estado = 'PLANIFICADO' THEN 'CARGADO' ELSE 'LIBRE' END titulo, placa||'|'|| nombre ||' '||coalesce(paterno,'')||' '||coalesce(materno,'') cantidad, '#28a745' color, 'ri-file-list-3-line' icono
+FROM vehiculos v
+JOIN usuarios u ON u.id_usuario = v.conductor
+LEFT JOIN despachos d
+  ON v.id_vehiculo = d.id_asignacion_vehiculo_carga
+  AND d.estado = 'PLANIFICADO'
+WHERE v.conductor IS NOT NULL
+ORDER BY 1`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error al obtener clientes' });
+  }
+});
+
 module.exports = router;
